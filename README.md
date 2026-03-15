@@ -13,14 +13,14 @@ Fill this in...
 
 ### Roadmap
 
-[ ] Basic Features:
-    [ ] Record timestamped entries of macros and/or calories
-    [ ] Record timestamped entries of calories burned
-    [ ] BMR entry (a basic setting)
-    [ ] Undo an entry
-    [ ] Save entries to local datafile
-    [ ] Get entries 
-    [ ] Export data ("copy datafile(s) somewhere else")
-[ ] Advanced Features:
-    [ ] Some pretty formating for get function
-    [ ] Extended export options (i.e. format, compress to timespan like day or week instead of individual entries)
+- [ ] Basic Features:
+    - [ ] Record timestamped entries of macros and/or calories
+    - [ ] Record timestamped entries of calories burned
+    - [ ] BMR entry (a basic setting)
+    - [ ] Undo an entry
+    - [ ] Save entries to local datafile
+    - [ ] Get entries 
+    - [ ] Export data ("copy datafile(s) somewhere else")
+- [ ] Advanced Features:
+    - [ ] Some pretty formating for get function
+    - [ ] Extended export options (i.e. format, compress to timespan like day or week instead of individual entries)
