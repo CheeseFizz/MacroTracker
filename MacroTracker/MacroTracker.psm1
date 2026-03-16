@@ -10,10 +10,46 @@ class DietEntry : Entry {
     [Int16]$Fiber
     [Int16]$Carbs
     [Int16]$Fat
+
+    DietEntry([hashtable]$props) {
+        foreach ($k in $this.PSObject.Properties.GetEnumerator().Name) {
+            $this.$k = $props[$k]
+        }
+    }
+
+    DietEntry(
+        [Int16]$Calories,
+        [Int16]$Protein,
+        [Int16]$Fiber,
+        [Int16]$Carbs,
+        [Int16]$Fat,
+        [string]$Description
+    ) {
+        $this.Calories = $Calories
+        $this.Protein = $Protein
+        $this.Fiber = $Fiber
+        $this.Carbs = $Carbs
+        $this.Fat = $Fat
+        $this.Description = $Description
+    }
 }
 
 class ActivityEntry : Entry {
     [Int16]$Calories
+
+    ActivityEntry([hashtable]$props) {
+        foreach ($k in $this.PSObject.Properties.GetEnumerator().Name) {
+            $this.$k = $props[$k]
+        }
+    }
+
+    ActivityEntry(
+        [Int16]$Calories,
+        [string]$Description
+    ) {
+        $this.Calories = $Calories
+        $this.Description = $Description
+    }
 }
 
 class EntryLog {
@@ -36,10 +72,6 @@ class MTDataLog {
         $this.DataStart = Get-Date
         $this.DataEnd = Get-Date
         $this.Data = [System.Collections.Generic.Dictionary[string, EntryLog]]::new()
-    }
-
-    [void] load([System.IO.FileInfo]$Path) {
-
     }
 }
 
@@ -66,7 +98,14 @@ function InitializeEnvironment {
         New-Item -Path $Script:MTSettings["DataDirectory"] -ItemType Directory -Force | Out-Null
     }
 
-    # TODO: load current log
+    #load current log
+    $dfile = Join-Path $Script:MTSettings["DataDirectory"] "data.xml"
+    if (Test-Path $dfile) {
+        $Script:CurrentDataLog = Get-Content $dfile | ConvertFrom-CliXml 
+    }
+    else {
+        $Script:CurrentDataLog = [MTDataLog]::new()
+    }
 }
 
 function New-MTDietEntry {
@@ -114,7 +153,7 @@ function New-MTDietEntry {
         return
     }
 
-    $entry = [DietEntry]::new($Calories, $Protein, $Fiber, $Carbs, $Fat, $Description)
+    $entry = [DietEntry]::new($PSBoundParameters)
 
 
 }
