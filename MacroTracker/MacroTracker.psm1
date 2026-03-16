@@ -69,8 +69,8 @@ class MTDataLog {
     [System.Collections.IDictionary]$Data
 
     MTDataLog() {
-        $this.DataStart = Get-Date
-        $this.DataEnd = Get-Date
+        $this.DataStart = (Get-Date).Date 
+        $this.DataEnd = (Get-Date).Date 
         $this.Data = [System.Collections.Generic.Dictionary[string, EntryLog]]::new()
     }
 }
@@ -108,7 +108,43 @@ function InitializeEnvironment {
     }
 }
 
-function New-MTDietEntry {
+function SaveData {
+    # Save data to disk
+    $Script:CurrentDataLog.DataEnd = $dt.Date
+    $dfilepath = Join-Path $Script:MTSettings["DataDirectory"] "data.xml"
+    $Script:CurrentDataLog | ConvertTo-CliXml -Depth 10 | Out-File $dfilepath
+    
+    # Roll over data file if it's too big
+    $datafile = Get-Item $dfile
+
+    if ($datafile.Length -ge $Script:MaxFileSize) {
+        # Clean cut for datafile
+        # Get current day's data to put in new file
+        $dt = Get-Date
+        $todaydata = $Script:CurrentDataLog.Data[$($dt.ToString("yyyyMMdd"))]
+
+        $newMTDataLog = [MTDataLog]::new()
+        $newMTDataLog.Data[$($dt.ToString("yyyyMMdd"))] = $todaydata
+        
+
+        # Remove today's data from current file
+        $Script:CurrentDataLog.Data.Remove($($dt.ToString("yyyyMMdd"))) | Out-Null
+
+        # Save old log to a new file
+        $startstamp = $Script:CurrentDataLog.DataStart.ToString("yyyyMMdd")
+        $endstamp = $Script:CurrentDataLog.DataEnd.ToString("yyyyMMdd")
+        $timestampedfilename = "data_$($startstamp)-$($endstamp).xml"
+        $timestampedfilepath = $dfilepath = Join-Path $Script:MTSettings["DataDirectory"] $timestampedfilename
+
+        $Script:CurrentDataLog | ConvertTo-CliXml -Depth 10 | Out-File $timestampedfilepath
+
+        # Set new CurrentDataLog and save it
+        $Script:CurrentDataLog = $newMTDataLog
+        $Script:CurrentDataLog | ConvertTo-CliXml -Depth 10 | Out-File $dfilepath
+    }
+}
+
+function Add-MTDietEntry {
     param(
         # kcal
         [Int16]
@@ -155,15 +191,47 @@ function New-MTDietEntry {
 
     $entry = [DietEntry]::new($PSBoundParameters)
 
-
+    if (-not ($Calories -gt 0 -or $NoCalc)) {
+        # Calculate Calories field
+        $entry.Calories = (
+            4 * $Protein + 
+            4 * ($Carbs - $Fiber) +
+            2 * $Fiber +
+            9 * $Fat
+        )
+    }
+    
+    SaveEntry -Entry $Entry
 }
 
-funciton New-MTActivityEntry {
+funciton Add-MTActivityEntry {
+    param(
+        # kcal
+        [Int16]
+        $Calories=0,
 
+        [string]
+        $Description=""
+    )
+
+    if ($Script:MTDir -ieq "") {
+        throw "Module initialization failed, so functions are unavailable"
+    }
+
+    if (
+        $Calories -eq 0 -and
+        $Description -ieq ""
+    ) {
+        # nothing fancy, just don't do anything
+        return
+    }
+
+    $entry = [ActivityEntry]::new($PSBoundParameters)   
+
+    SaveEntry -Entry $Entry
 }
 
 function SaveEntry {
-    [CmdletBinding()]
     param(
         [Entry]$Entry
     )
@@ -180,5 +248,14 @@ function SaveEntry {
         }
     }
 
+    $dt = Get-Date
+    if ($null -ieq $Script:CurrentDataLog.Data[$($dt.ToString("yyyyMMdd"))]){
+        $Script:CurrentDataLog.Data[$($dt.ToString("yyyyMMdd"))] = [EntryLog]::new()
+    }
 
+    $Script:CurrentDataLog.Data[$($dt.ToString("yyyyMMdd"))].$dest[$($dt.ToString("hh:mm:ss"))] = $Entry
+
+    SaveData
 }
+
+InitializeEnvironment
