@@ -204,7 +204,7 @@ function Add-MTDietEntry {
     SaveEntry -Entry $Entry
 }
 
-funciton Add-MTActivityEntry {
+function Add-MTActivityEntry {
     param(
         # kcal
         [Int16]
@@ -259,3 +259,8 @@ function SaveEntry {
 }
 
 InitializeEnvironment
+
+Export-ModuleMember -Function @(
+    "Add-MTDietEntry",
+    "Add-MTActivityEntry"
+)
