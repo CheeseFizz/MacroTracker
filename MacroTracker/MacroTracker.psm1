@@ -258,6 +258,47 @@ function SaveEntry {
     SaveData
 }
 
+function Get-MTData {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true, ParameterSetName="Quick")]
+        [ValidateSet("Last", "Today", "Week")]
+        [string]
+        $From,
+        
+        [Parameter(Mandatory=$true, ParameterSetName="TimeSpan")]
+        [timespan]
+        $TimeSpan,
+
+        [switch]
+        $AsHashtable
+    )
+
+    throw [System.NotImplementedException] "This function isn't implemented yet"
+
+    $Now = Get-Date
+
+    if ($PSCmdlet.ParameterSetName -ieq "Quick") {
+        switch ($From) {
+            "Last" {
+                $todaydata = $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")]
+                $lastactkey = $todaydata.Activity.Keys | Sort-Object -Stable
+                $lastdietkey = $todaydata.Diet.Keys | Sort-Object -Stable
+                if ($lastactkey -gt $lastdietkey) {
+                    $reqdata = $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")].Activity[$lastactkey]
+                }
+                else {
+                    $reqdata = $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")].Diet[$lastactkey]
+                }
+            }
+            "Today" {
+                $reqdata = $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")]
+            }
+        }
+    }
+
+}
+
 InitializeEnvironment
 
 Export-ModuleMember -Function @(
