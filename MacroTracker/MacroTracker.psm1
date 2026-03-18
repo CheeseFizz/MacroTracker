@@ -258,6 +258,21 @@ function SaveEntry {
     SaveData
 }
 
+function getData {
+    param(
+        [datetime]$Date
+    )
+
+    # check if data is available in current datalog
+    if ($Date -lt $Script:CurrentDataLog.DataStart) {
+        throw [System.NotImplementedException]"getting data from old data files not supported yet"
+    }
+    elseif ($Date -gt $Script:CurrentDataLog.DataEnd) {
+        throw "no data from $($Date.ToString("yyyyMMdd"))"
+    }
+
+}
+
 function Get-MTData {
     [CmdletBinding()]
     param(
@@ -277,6 +292,7 @@ function Get-MTData {
     throw [System.NotImplementedException] "This function isn't implemented yet"
 
     $Now = Get-Date
+    [array]$reqdata = @()
 
     if ($PSCmdlet.ParameterSetName -ieq "Quick") {
         switch ($From) {
@@ -285,14 +301,19 @@ function Get-MTData {
                 $lastactkey = $todaydata.Activity.Keys | Sort-Object -Stable
                 $lastdietkey = $todaydata.Diet.Keys | Sort-Object -Stable
                 if ($lastactkey -gt $lastdietkey) {
-                    $reqdata = $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")].Activity[$lastactkey]
+                    $reqdata += $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")].Activity[$lastactkey]
                 }
                 else {
-                    $reqdata = $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")].Diet[$lastactkey]
+                    $reqdata += $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")].Diet[$lastactkey]
                 }
             }
             "Today" {
-                $reqdata = $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")]
+                $reqdata += $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")]
+            }
+            "Week" {
+                for ($day = $Now.Date.AddDays(-6); $day -le $Now.Date; $day = $day.AddDays(1)) {
+                    $reqdata += $Script:CurrentDataLog.Data[$day.ToString("yyyyMMdd")]
+                }
             }
         }
     }
