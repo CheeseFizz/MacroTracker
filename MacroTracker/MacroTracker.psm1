@@ -1,5 +1,8 @@
 $Script:MTDir = Join-Path [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData) "CheeseFizz" "MacroTracker"
 $Script:MaxFileSize = 100KB
+$Script:DateStrFormat = "yyyyMMdd"
+$Script:TimeStrFormat = "hh:mm:ss"
+$Script:OldDataCache = $null
 
 class Entry {
     [string]$Description
@@ -121,18 +124,18 @@ function SaveData {
         # Clean cut for datafile
         # Get current day's data to put in new file
         $dt = Get-Date
-        $todaydata = $Script:CurrentDataLog.Data[$($dt.ToString("yyyyMMdd"))]
+        $todaydata = $Script:CurrentDataLog.Data[$($dt.ToString($Script:DateStrFormat))]
 
         $newMTDataLog = [MTDataLog]::new()
-        $newMTDataLog.Data[$($dt.ToString("yyyyMMdd"))] = $todaydata
+        $newMTDataLog.Data[$($dt.ToString($Script:DateStrFormat))] = $todaydata
         
 
         # Remove today's data from current file
-        $Script:CurrentDataLog.Data.Remove($($dt.ToString("yyyyMMdd"))) | Out-Null
+        $Script:CurrentDataLog.Data.Remove($($dt.ToString($Script:DateStrFormat))) | Out-Null
 
         # Save old log to a new file
-        $startstamp = $Script:CurrentDataLog.DataStart.ToString("yyyyMMdd")
-        $endstamp = $Script:CurrentDataLog.DataEnd.ToString("yyyyMMdd")
+        $startstamp = $Script:CurrentDataLog.DataStart.ToString($Script:DateStrFormat)
+        $endstamp = $Script:CurrentDataLog.DataEnd.ToString($Script:DateStrFormat)
         $timestampedfilename = "data_$($startstamp)-$($endstamp).xml"
         $timestampedfilepath = $dfilepath = Join-Path $Script:MTSettings["DataDirectory"] $timestampedfilename
 
@@ -249,11 +252,11 @@ function SaveEntry {
     }
 
     $dt = Get-Date
-    if ($null -ieq $Script:CurrentDataLog.Data[$($dt.ToString("yyyyMMdd"))]){
-        $Script:CurrentDataLog.Data[$($dt.ToString("yyyyMMdd"))] = [EntryLog]::new()
+    if ($null -ieq $Script:CurrentDataLog.Data[$($dt.ToString($Script:DateStrFormat))]){
+        $Script:CurrentDataLog.Data[$($dt.ToString($Script:DateStrFormat))] = [EntryLog]::new()
     }
 
-    $Script:CurrentDataLog.Data[$($dt.ToString("yyyyMMdd"))].$dest[$($dt.ToString("hh:mm:ss"))] = $Entry
+    $Script:CurrentDataLog.Data[$($dt.ToString($Script:DateStrFormat))].$dest[$($dt.ToString("hh:mm:ss"))] = $Entry
 
     SaveData
 }
@@ -265,12 +268,39 @@ function getData {
 
     # check if data is available in current datalog
     if ($Date -lt $Script:CurrentDataLog.DataStart) {
-        throw [System.NotImplementedException]"getting data from old data files not supported yet"
+        
+        # check if cached already
+        if (
+            $Date -ge $Script:OldDataCache.DataStart -and
+            $Date -lt $Script.$Script:OldDataCache.DataEnd
+        ) {
+            return $Script:OldDataCache.Data[$Date.ToString($Script:DateStrFormat)]
+        }
+
+        # look for applicable datalog
+        $data = $null # use a local var for testing that I found something
+
+        $dfiles = Get-ChildItem $Script:MTSettings["DataDirectory"] -Name "*.xml"
+        foreach ($f in $dfiles) {
+            # filename format: data_$($startstamp)-$($endstamp).xml
+            $splitname = $f.Name.Split([char[]]@("_","-","."))
+            $start = [datetime]::ParseExact($splitname[1], $Script:DateStrFormat , $null)
+            $end = [datetime]::ParseExact($splitname[2], $Script:DateStrFormat , $null)
+            if ($Date -ge $start -and $Date -lt $end) {
+                $data = Get-Content $f | ConvertFrom-CliXml
+                break
+            }
+        }
+        if ($null -ine $data) {
+            $Script:OldDataCache = $data 
+            return $Script:OldDataCache.Data[$Date.ToString($Script:DateStrFormat)]
+        }
     }
     elseif ($Date -gt $Script:CurrentDataLog.DataEnd) {
-        throw "no data from $($Date.ToString("yyyyMMdd"))"
+        return
     }
 
+    return $Script:CurrentDataLog.Data[$Date.ToString($Script:DateStrFormat)]
 }
 
 function Get-MTData {
@@ -297,25 +327,28 @@ function Get-MTData {
     if ($PSCmdlet.ParameterSetName -ieq "Quick") {
         switch ($From) {
             "Last" {
-                $todaydata = $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")]
+                $todaydata = $Script:CurrentDataLog.Data[$Now.ToString($Script:DateStrFormat)]
                 $lastactkey = $todaydata.Activity.Keys | Sort-Object -Stable
                 $lastdietkey = $todaydata.Diet.Keys | Sort-Object -Stable
                 if ($lastactkey -gt $lastdietkey) {
-                    $reqdata += $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")].Activity[$lastactkey]
+                    $reqdata += $Script:CurrentDataLog.Data[$Now.ToString($Script:DateStrFormat)].Activity[$lastactkey]
                 }
                 else {
-                    $reqdata += $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")].Diet[$lastactkey]
+                    $reqdata += $Script:CurrentDataLog.Data[$Now.ToString($Script:DateStrFormat)].Diet[$lastactkey]
                 }
             }
             "Today" {
-                $reqdata += $Script:CurrentDataLog.Data[$Now.ToString("yyyyMMdd")]
+                $reqdata += $Script:CurrentDataLog.Data[$Now.ToString($Script:DateStrFormat)]
             }
             "Week" {
                 for ($day = $Now.Date.AddDays(-6); $day -le $Now.Date; $day = $day.AddDays(1)) {
-                    $reqdata += $Script:CurrentDataLog.Data[$day.ToString("yyyyMMdd")]
+                    $reqdata += $Script:CurrentDataLog.Data[$day.ToString($Script:DateStrFormat)]
                 }
             }
         }
+    }
+    elseif ($PSCmdlet.ParameterSetName -ieq "TimeSpan") {
+
     }
 
 }
