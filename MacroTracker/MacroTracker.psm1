@@ -342,13 +342,16 @@ function Get-MTData {
             }
             "Week" {
                 for ($day = $Now.Date.AddDays(-6); $day -le $Now.Date; $day = $day.AddDays(1)) {
-                    $reqdata += $Script:CurrentDataLog.Data[$day.ToString($Script:DateStrFormat)]
+                    $reqdata += getData -Date $day
                 }
             }
         }
     }
     elseif ($PSCmdlet.ParameterSetName -ieq "TimeSpan") {
-
+        $start = $Now - $TimeSpan
+        for ($day = $start; $day -le $Now; $day = $day.AddDays(1)){
+            $reqdata += getData -Date $day
+        }
     }
 
 }
